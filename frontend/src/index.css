@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-void text-fg-primary font-body antialiased;
+    min-height: 100vh;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer components {
+  .app-main {
+    @apply bg-cosmic-glow bg-no-repeat;
+    min-height: 100vh;
+  }
+  
+  .card {
+    @apply bg-surface bg-card-gradient rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] p-8;
+  }
+
+  .card-hero {
+    @apply bg-surface bg-card-gradient rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)] p-10;
+  }
+  
+  .btn-primary {
+    @apply bg-fg-primary hover:bg-[#E5E5E7] text-[#0B0B11] font-medium py-[12px] px-[20px] rounded-md transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none tracking-[-0.005em] text-[14px];
+  }
+  
+  .btn-secondary {
+    @apply bg-surface-raised hover:bg-surface text-fg-primary border border-border-default font-medium py-[12px] px-[20px] rounded-md transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-destructive {
+    @apply bg-surface-raised hover:bg-surface text-danger border border-danger-border font-medium py-[12px] px-[20px] rounded-md transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-icon {
+    @apply w-[40px] h-[40px] rounded-md bg-surface-raised text-fg-secondary flex items-center justify-center hover:text-fg-primary transition-colors;
+  }
+  
+  .input-field {
+    @apply bg-surface-inset border border-border-default text-fg-primary rounded-md py-[12px] px-[16px] h-[44px] focus:outline-none focus:border-accent-glow focus:ring-[3px] focus:ring-accent-glow/25 transition-all duration-200 w-full text-[14px] font-body placeholder:text-fg-tertiary;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1 py-1 px-2.5 rounded-full font-body font-semibold text-[12px] tabular-nums;
+  }
+
+  .pill-success {
+    @apply bg-success-bg text-success border border-success-border;
+  }
+
+  .pill-danger {
+    @apply bg-danger-bg text-danger border border-danger-border;
+  }
+
+  .table-container {
+    @apply w-full border-collapse border-spacing-0;
+  }
+
+  .table-th {
+    @apply text-left py-4 px-5 font-body font-medium text-[12px] text-fg-tertiary tracking-[0.02em] uppercase border-b border-border-subtle;
+  }
+
+  .table-td {
+    @apply py-[18px] px-5 font-body font-normal text-[14px] text-fg-primary border-b border-border-subtle;
+  }
+
+  .table-tr {
+    @apply hover:bg-surface-raised transition-colors;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 bg-[#07070B]/70 backdrop-blur-sm z-50 flex items-center justify-center;
+  }
+
+  .modal {
+    @apply bg-surface-raised border border-border-default rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.1)] p-10 max-w-[560px] w-[calc(100%-32px)];
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0B11; 
+}
+
+::-webkit-scrollbar-thumb {
+  background: #111118; 
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #16161F; 
+}

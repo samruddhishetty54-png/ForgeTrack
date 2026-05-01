@@ -1,0 +1,14 @@
+{
+  "name": "forgetrack-root",
+  "version": "1.0.0",
+  "description": "Root package for ForgeTrack",
+  "scripts": {
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend",
+    "lint": "npm run lint --prefix frontend"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
