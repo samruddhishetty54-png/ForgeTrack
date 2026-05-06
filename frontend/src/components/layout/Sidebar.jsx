@@ -39,8 +39,8 @@ const Sidebar = () => {
     { label: 'OVERVIEW', items: [
       { name: 'Dashboard', path: '/me/attendance', icon: LayoutDashboard },
       { name: 'My Attendance', path: '/me/attendance', icon: UserCheck },
-      { name: 'Upcoming', path: '/me/upcoming', icon: Calendar },
-      { name: 'Materials', path: '/me/materials', icon: BookOpen }
+      { name: 'Upcoming Sessions', path: '/me/upcoming', icon: Clock },
+      { name: 'Class Materials', path: '/me/materials', icon: FileText }
     ]}
   ];
 
@@ -49,21 +49,23 @@ const Sidebar = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <aside className="w-[280px] flex-shrink-0 border-r border-white/5 bg-[#0B0B11] hidden md:flex flex-col h-screen">
-      <div className="h-20 flex items-center px-8">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-accent-glow rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)]">
-            <span className="text-white font-bold text-xl">F</span>
+    <aside className="w-[280px] flex-shrink-0 border-r border-white/5 bg-[#08080C] hidden md:flex flex-col h-screen sticky top-0">
+      {/* Logo Section */}
+      <div className="h-24 flex items-center px-8 border-b border-white/5">
+        <Link to="/" className="flex items-center gap-4 group">
+          <div className="w-10 h-10 bg-accent-glow rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)] group-hover:scale-105 transition-transform">
+            <span className="text-white font-black text-xl">F</span>
           </div>
-          <h1 className="text-[22px] font-bold text-fg-primary tracking-tight">ForgeTrack</h1>
-        </div>
+          <h1 className="text-[22px] font-black text-fg-primary tracking-tighter group-hover:text-accent-glow transition-colors">ForgeTrack</h1>
+        </Link>
       </div>
       
-      <nav className="flex-1 overflow-y-auto py-8 px-4 space-y-10">
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-8 px-4 space-y-12 scrollbar-hide">
         {links.map((section, idx) => (
           <div key={idx}>
-            <p className="text-[11px] font-bold text-fg-tertiary mb-6 px-4 uppercase tracking-[0.2em]">{section.label}</p>
-            <div className="space-y-2">
+            <p className="text-[10px] font-black text-fg-tertiary mb-6 px-4 uppercase tracking-[0.3em] opacity-60">{section.label}</p>
+            <div className="space-y-1">
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
@@ -73,12 +75,12 @@ const Sidebar = () => {
                     to={item.path}
                     className={`flex items-center gap-4 h-[52px] px-4 rounded-2xl transition-all group ${
                       active 
-                        ? 'bg-surface-raised text-fg-primary border border-white/5 shadow-lg' 
-                        : 'text-fg-tertiary hover:text-fg-secondary hover:bg-surface'
+                        ? 'bg-white/[0.05] text-white border border-white/10 shadow-xl' 
+                        : 'text-fg-tertiary hover:text-fg-secondary hover:bg-white/[0.02]'
                     }`}
                   >
                     <Icon className={`w-5 h-5 transition-colors ${active ? 'text-accent-glow' : 'group-hover:text-fg-primary'}`} />
-                    <span className={`text-[15px] font-medium transition-colors ${active ? 'text-fg-primary' : 'group-hover:text-fg-primary'}`}>
+                    <span className={`text-[15px] font-bold tracking-tight transition-colors ${active ? 'text-white' : 'group-hover:text-fg-primary'}`}>
                       {item.name}
                     </span>
                   </Link>
@@ -89,13 +91,14 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="p-6 border-t border-white/5 bg-void/20">
+      {/* Logout Footer */}
+      <div className="p-6 border-t border-white/5">
         <button 
           onClick={signOut}
-          className="w-full flex items-center gap-4 h-14 px-5 rounded-[20px] text-fg-tertiary hover:bg-danger/10 hover:text-danger transition-all group"
+          className="w-full flex items-center gap-4 h-14 px-5 rounded-[20px] text-fg-tertiary hover:bg-danger/5 hover:text-danger transition-all group"
         >
-          <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          <span className="text-[15px] font-bold tracking-tight">Sign Out</span>
+          <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-[15px] font-black tracking-tighter">Logout</span>
         </button>
       </div>
     </aside>
