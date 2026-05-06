@@ -26,13 +26,31 @@ import StudentMaterials from './pages/student/StudentMaterials';
 
 // Root redirect based on role
 const RootRedirect = () => {
-  const { userProfile, loading } = useAuth();
+  const { session, userProfile, loading } = useAuth();
   
   if (loading) return null;
   
-  if (userProfile?.role === 'mentor') {
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!userProfile) {
+    // Session exists but profile fetch failed or is missing
+    // Don't redirect to /login here to avoid infinite loops
+    // Instead, let RoleGuard handle the 'no profile' state or show an error
+    return <div className="flex h-screen items-center justify-center bg-void text-fg-secondary">
+      <div className="text-center">
+        <p className="mb-4">Profile not found.</p>
+        <button onClick={() => window.location.href = '/login?reason=no_profile'} className="btn-secondary">
+          Return to Login
+        </button>
+      </div>
+    </div>;
+  }
+  
+  if (userProfile.role === 'mentor') {
     return <Navigate to="/dashboard" replace />;
-  } else if (userProfile?.role === 'student') {
+  } else if (userProfile.role === 'student') {
     return <Navigate to="/me/attendance" replace />;
   }
   

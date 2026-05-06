@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import Skeleton from '../../components/ui/Skeleton';
@@ -9,7 +8,8 @@ import {
   Calendar, 
   TrendingUp,
   Award,
-  AlertCircle
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 
 const MyAttendance = () => {
@@ -62,140 +62,133 @@ const MyAttendance = () => {
     fetchMyAttendance();
   }, [userProfile]);
 
-
-  // Profile not linked to a student record yet
   if (!loading && !userProfile?.student_id) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center">
-        <div className="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
-          <AlertCircle className="w-8 h-8 text-warning" />
+        <div className="w-20 h-20 rounded-[32px] bg-warning/10 flex items-center justify-center mb-6">
+          <AlertCircle className="w-10 h-10 text-warning" />
         </div>
-        <h2 className="text-h2 text-fg-primary mb-2">Profile Not Set Up</h2>
-        <p className="text-body text-fg-secondary max-w-md">
-          Your account isn't linked to a student record yet. Please ask your mentor to run the database setup script, then log out and back in.
+        <h2 className="text-[32px] font-bold text-fg-primary mb-2 tracking-tight">Profile Not Linked</h2>
+        <p className="text-body-lg text-fg-tertiary max-w-md">
+          Your account isn't linked to a student record. Please contact your mentor to synchronize your profile.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-10 pb-12">
       <div>
-        <h1 className="text-display-lg text-fg-primary mb-2">My Attendance</h1>
-        <p className="text-body-lg text-fg-secondary">Track your progress and participation.</p>
+        <h1 className="text-[40px] font-bold text-fg-primary tracking-tight mb-2">My Attendance</h1>
+        <p className="text-body-lg text-fg-tertiary">Track your bootcamp progress and session participation.</p>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card-hero">
-          <div className="flex items-center gap-3 mb-4 text-fg-tertiary">
-            <TrendingUp className="w-5 h-5" />
-            <span className="text-label uppercase">Attendance Rate</span>
-          </div>
-          <div className="flex items-end gap-2">
-            <span className="text-display-md text-fg-primary tabular-nums">{Math.round(stats.percentage)}%</span>
-            <span className="text-body-sm text-fg-tertiary mb-2">of total sessions</span>
-          </div>
-          <div className="mt-4 h-1.5 w-full bg-surface-inset rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-1000 ${stats.percentage >= 75 ? 'bg-success' : 'bg-warning'}`}
-              style={{ width: `${stats.percentage}%` }}
-            ></div>
-          </div>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-48 rounded-[40px]" />)}
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Attendance Rate */}
+          <div className="card bg-surface-raised border border-white/5 rounded-[40px] p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-2xl bg-accent-glow/10 border border-accent-glow/20 flex items-center justify-center text-accent-glow">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <span className="text-[11px] font-bold text-fg-tertiary uppercase tracking-widest">Attendance Rate</span>
+            </div>
+            <div className="flex items-baseline gap-2 mb-6">
+              <span className="text-[56px] font-black text-fg-primary leading-none">{Math.round(stats.percentage)}%</span>
+              <span className="text-sm font-medium text-fg-tertiary uppercase tracking-widest">Score</span>
+            </div>
+            <div className="h-2 w-full bg-void/50 rounded-full overflow-hidden border border-white/5">
+              <div 
+                className={`h-full transition-all duration-1000 ${stats.percentage >= 75 ? 'bg-success shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-danger shadow-[0_0_10px_rgba(244,63,94,0.5)]'}`}
+                style={{ width: `${stats.percentage}%` }}
+              ></div>
+            </div>
+          </div>
 
-        <div className="card-hero">
-          <div className="flex items-center gap-3 mb-4 text-fg-tertiary">
-            <Award className="w-5 h-5" />
-            <span className="text-label uppercase">Sessions Present</span>
+          {/* Sessions Present */}
+          <div className="card bg-surface-raised border border-white/5 rounded-[40px] p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-2xl bg-success/10 border border-success/20 flex items-center justify-center text-success">
+                <Award className="w-5 h-5" />
+              </div>
+              <span className="text-[11px] font-bold text-fg-tertiary uppercase tracking-widest">Sessions Attended</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[56px] font-black text-fg-primary leading-none">{stats.present}</span>
+              <span className="text-sm font-medium text-fg-tertiary uppercase tracking-widest">/ {stats.total} total</span>
+            </div>
+            <p className="text-[13px] text-fg-tertiary mt-6">Sessions completed so far.</p>
           </div>
-          <div className="flex items-end gap-2">
-            <span className="text-display-md text-fg-primary tabular-nums">{stats.present}</span>
-            <span className="text-body-sm text-fg-tertiary mb-2">/ {stats.total}</span>
-          </div>
-        </div>
 
-        <div className="card-hero">
-          <div className="flex items-center gap-3 mb-4 text-fg-tertiary">
-            <AlertCircle className="w-5 h-5" />
-            <span className="text-label uppercase">Status</span>
-          </div>
-          <div>
-            <span className={`pill ${stats.percentage >= 75 ? 'pill-success' : 'pill-danger'}`}>
-              {stats.percentage >= 75 ? 'On Track' : 'Needs Attention'}
-            </span>
-            <p className="text-caption text-fg-tertiary mt-4">
-              Minimum 75% attendance required for certification.
+          {/* Status Level */}
+          <div className="card bg-surface-raised border border-white/5 rounded-[40px] p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-2xl bg-warning/10 border border-warning/20 flex items-center justify-center text-warning">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <span className="text-[11px] font-bold text-fg-tertiary uppercase tracking-widest">Status Level</span>
+            </div>
+            <div className={`text-[32px] font-black mb-4 ${stats.percentage >= 75 ? 'text-success' : 'text-danger'}`}>
+              {stats.percentage >= 75 ? 'On Track' : 'Risk Warning'}
+            </div>
+            <p className="text-[13px] leading-relaxed text-fg-tertiary">
+              {stats.percentage >= 75 
+                ? 'Excellent work! You are meeting the minimum attendance requirement for certification.' 
+                : 'Attention: Your attendance is below 75%. This may affect your certification eligibility.'}
             </p>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Attendance History */}
-      <div className="card">
-        <h3 className="text-h3 text-fg-primary mb-6">Attendance History</h3>
-        
+      {/* History Log */}
+      <div className="card bg-surface-raised border border-white/5 rounded-[40px] overflow-hidden">
+        <div className="p-10 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+          <h3 className="text-[24px] font-bold text-fg-primary">Recent Activity Log</h3>
+          <Calendar className="w-6 h-6 text-fg-tertiary" />
+        </div>
+
         {loading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-        </div>
-      ) : error ? (
-        <div className="card border-danger/50 bg-danger/5 flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center mb-4 text-danger">
-            <AlertCircle className="w-6 h-6" />
+          <div className="p-10 space-y-4">
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
           </div>
-          <h3 className="text-h3 text-fg-primary mb-2">Connection Error</h3>
-          <p className="text-body text-fg-secondary max-w-md mb-6">
-            {error}. Check your .env.local file.
-          </p>
-          <button onClick={() => window.location.reload()} className="btn-secondary">
-            Retry Connection
-          </button>
-        </div>
-      ) : attendance.length > 0 ? (
-
+        ) : attendance.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-border-subtle">
-                  <th className="py-4 text-label text-fg-tertiary uppercase">Date</th>
-                  <th className="py-4 text-label text-fg-tertiary uppercase">Topic</th>
-                  <th className="py-4 text-label text-fg-tertiary uppercase">Status</th>
-                  <th className="py-4 text-label text-fg-tertiary uppercase text-right">Marked At</th>
+                <tr className="bg-void/30">
+                  <th className="px-10 py-5 text-[11px] font-bold text-fg-tertiary uppercase tracking-widest">SESSION DATE</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-fg-tertiary uppercase tracking-widest">TOPIC COVERED</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-fg-tertiary uppercase tracking-widest text-right">STATUS</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/5">
                 {attendance.map((record) => (
-                  <tr key={record.id} className="border-b border-border-subtle hover:bg-surface-inset transition-colors">
-                    <td className="py-4">
-                      <div className="flex items-center gap-2 text-fg-primary font-medium">
-                        <Calendar className="w-4 h-4 text-fg-tertiary" />
-                        {record.sessions?.date ? new Date(record.sessions.date).toLocaleDateString() : 'N/A'}
+                  <tr key={record.id} className="group hover:bg-white/[0.02] transition-colors">
+                    <td className="px-10 py-6">
+                      <div className="flex items-center gap-3">
+                        <Clock className="w-4 h-4 text-accent-glow" />
+                        <span className="text-fg-secondary font-medium">
+                          {record.sessions?.date ? new Date(record.sessions.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                        </span>
                       </div>
                     </td>
-                    <td className="py-4 text-body text-fg-secondary">
-                      {record.sessions?.topic || 'Unknown Topic'}
+                    <td className="px-10 py-6">
+                      <span className="text-fg-primary font-bold group-hover:text-accent-glow transition-colors">
+                        {record.sessions?.topic || 'Untitled Session'}
+                      </span>
                     </td>
-
-                    <td className="py-4">
-                      <div className="flex items-center gap-2">
-                        {record.present ? (
-                          <>
-                            <CheckCircle2 className="w-4 h-4 text-success" />
-                            <span className="text-body-sm text-success font-medium">Present</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-4 h-4 text-danger" />
-                            <span className="text-body-sm text-danger font-medium">Absent</span>
-                          </>
-                        )}
+                    <td className="px-10 py-6 text-right">
+                      <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-black tracking-widest ${
+                        record.present ? 'bg-success/10 text-success border border-success/20' : 'bg-danger/10 text-danger border border-danger/20'
+                      }`}>
+                        {record.present ? 'PRESENT' : 'ABSENT'}
                       </div>
-                    </td>
-                    <td className="py-4 text-caption text-fg-tertiary text-right">
-                      {new Date(record.marked_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                   </tr>
                 ))}
@@ -203,8 +196,9 @@ const MyAttendance = () => {
             </table>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-body text-fg-tertiary">No attendance records found yet.</p>
+          <div className="p-20 text-center">
+            <Clock className="w-12 h-12 text-fg-tertiary/20 mx-auto mb-4" />
+            <p className="text-fg-tertiary">No sessions recorded yet. Your activity will appear here.</p>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
@@ -8,13 +8,8 @@ export const AuthProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  /**
-   * Fetch the public.users profile for a given auth user ID.
-   * Returns the profile data, or null if not found.
-   * If no profile exists for a valid session, we force sign-out to
-   * prevent a zombie-auth state (logged in but invisible to the app).
-   */
-  const fetchUserProfile = async (userId, autoSignOutIfMissing = false) => {
+  const fetchUserProfile = useCallback(async (userId, authUser = null) => {
+    console.log('[AuthContext] Fetching profile for:', userId);
     try {
       const { data, error } = await supabase
         .from('users')
@@ -24,67 +19,58 @@ export const AuthProvider = ({ children }) => {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // No profile found in public.users for this auth user.
-          if (autoSignOutIfMissing) {
-            console.warn('AuthContext: Session exists but no public.users profile found. Signing out to reset.');
-            await supabase.auth.signOut();
-            setSession(null);
-            setUserProfile(null);
-            // Hard redirect so state is fully cleared
-            window.location.href = '/login?reason=no_profile';
-            return null;
+          console.warn('[AuthContext] Profile row missing in public.users');
+          
+          // Auto-repair for mentors/devs
+          const isStudent = authUser?.email?.endsWith('@example.com') || authUser?.email?.endsWith('@forge.local');
+          if (authUser?.email && !isStudent) {
+            console.log('[AuthContext] Auto-repairing mentor profile...');
+            const { data: repairData, error: repairError } = await supabase
+              .from('users')
+              .insert([{
+                id: authUser.id,
+                email: authUser.email,
+                role: 'mentor',
+                display_name: authUser.user_metadata?.full_name || authUser.email.split('@')[0]
+              }])
+              .select()
+              .single();
+            
+            if (!repairError && repairData) {
+              setUserProfile(repairData);
+              return;
+            }
           }
         } else {
-          console.error('Error fetching user profile:', error.message, error.code);
+          console.error('[AuthContext] Profile fetch error:', error.message);
         }
         setUserProfile(null);
-        return null;
+      } else {
+        console.log('[AuthContext] Profile loaded:', data.role);
+        setUserProfile(data);
       }
-
-      setUserProfile(data);
-      return data;
     } catch (err) {
-      console.error('Unexpected error fetching profile:', err);
+      console.error('[AuthContext] Unexpected fetch error:', err);
       setUserProfile(null);
-      return null;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    async function initSession() {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Error getting session:', error);
-        }
-
-        if (mounted) {
-          setSession(session);
-          if (session?.user) {
-            // Pass autoSignOutIfMissing=true so stale sessions are cleared
-            await fetchUserProfile(session.user.id, true);
-          } else {
-            setLoading(false);
-          }
-        }
-      } catch (err) {
-        console.error('initSession error:', err);
-        if (mounted) setLoading(false);
-      }
-    }
-
-    initSession();
-
+    // Handle session state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, currentSession) => {
+        console.log('[AuthContext] Auth event:', event);
+        
         if (!mounted) return;
-        setSession(session);
-        if (session?.user) {
-          await fetchUserProfile(session.user.id, true);
+        
+        setSession(currentSession);
+        
+        if (currentSession?.user) {
+          await fetchUserProfile(currentSession.user.id, currentSession.user);
         } else {
           setUserProfile(null);
           setLoading(false);
@@ -92,19 +78,38 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      if (!mounted) return;
+      setSession(initialSession);
+      if (initialSession?.user) {
+        fetchUserProfile(initialSession.user.id, initialSession.user);
+      } else {
+        setLoading(false);
+      }
+    });
+
     return () => {
       mounted = false;
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [fetchUserProfile]);
 
   const signOut = async () => {
-    setLoading(true);
-    await supabase.auth.signOut();
-    setSession(null);
-    setUserProfile(null);
-    setLoading(false);
-    window.location.href = '/login';
+    console.log('[AuthContext] Signing out...');
+    try {
+      setLoading(true);
+      // Aggressive local cleanup
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('sb-')) localStorage.removeItem(k);
+      });
+      await supabase.auth.signOut();
+    } finally {
+      setSession(null);
+      setUserProfile(null);
+      setLoading(false);
+      window.location.href = '/login';
+    }
   };
 
   return (
