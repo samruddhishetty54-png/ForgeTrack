@@ -38,14 +38,14 @@ const TopBar = () => {
         <div className="flex items-center gap-6 h-10 border-l border-white/10 pl-8">
           <div className="flex flex-col items-end">
             <span className="text-[14px] font-bold text-fg-primary leading-tight tracking-tight">
-              {userProfile?.display_name || 'Abhishek Sharma'}
+              {userProfile?.display_name || 'Anonymous User'}
             </span>
             <span className="text-[11px] font-bold text-fg-tertiary uppercase tracking-widest opacity-60">
-              {userProfile?.role || 'Student'}
+              {userProfile?.role || 'Guest'}
             </span>
           </div>
           <div className="w-10 h-10 rounded-full bg-accent-glow/20 border border-accent-glow/30 flex items-center justify-center text-accent-glow font-black text-sm shadow-[0_0_20px_rgba(99,102,241,0.2)]">
-            {(userProfile?.display_name || 'A').charAt(0).toUpperCase()}
+            {(userProfile?.display_name || 'U').charAt(0).toUpperCase()}
           </div>
         </div>
       </div>

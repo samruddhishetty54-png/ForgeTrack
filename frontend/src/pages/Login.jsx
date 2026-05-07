@@ -8,11 +8,11 @@ const Login = () => {
   const [isMentor, setIsMentor] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { session } = useAuth();
+  const { session, userProfile, loading: authLoading } = useAuth();
   const [dbStatus, setDbStatus] = useState({ students: 0, sessions: 0, checking: true });
 
   const searchParams = new URLSearchParams(location.search);
@@ -35,13 +35,15 @@ const Login = () => {
     checkDb();
   }, []);
 
-  if (session) {
+  // Only auto-redirect if we have BOTH a session AND a loaded profile
+  // If profile is null (missing from DB), stay on login so user can see the error
+  if (!authLoading && session && userProfile) {
     return <Navigate to="/" replace />;
   }
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
     setError(null);
 
     const email = isMentor ? identifier.trim().toLowerCase() : `${identifier.trim().toLowerCase()}@example.com`;
@@ -63,7 +65,7 @@ const Login = () => {
       } else {
         setError(signInError.message);
       }
-      setLoading(false);
+      setSubmitting(false);
     } else {
       navigate(location.state?.from?.pathname || '/');
     }
@@ -178,10 +180,10 @@ const Login = () => {
 
             <button
               type="submit"
-              disabled={loading || !identifier || !password}
+              disabled={submitting || !identifier || !password}
               className="w-full bg-accent-glow text-white h-16 rounded-[24px] font-bold text-[17px] hover:shadow-[0_20px_40px_rgba(99,102,241,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-3 mt-4"
             >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Enter Platform'}
+              {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Enter Platform'}
             </button>
           </form>
 

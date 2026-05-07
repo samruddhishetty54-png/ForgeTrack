@@ -37,8 +37,8 @@ const Sidebar = () => {
 
   const studentLinks = [
     { label: 'OVERVIEW', items: [
-      { name: 'Dashboard', path: '/me/attendance', icon: LayoutDashboard },
-      { name: 'My Attendance', path: '/me/attendance', icon: UserCheck },
+      { name: 'Dashboard', path: '/me/dashboard', icon: LayoutDashboard },
+      { name: 'My Attendance', path: '/me/attendance', icon: CheckSquare },
       { name: 'Upcoming Sessions', path: '/me/upcoming', icon: Clock },
       { name: 'Class Materials', path: '/me/materials', icon: FileText }
     ]}

@@ -16,19 +16,17 @@ const RoleGuard = ({ allowedRoles }) => {
     );
   }
 
-  // Not logged in at all → go to login
+  // Not logged in → go to login
   if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Session exists but no profile in public.users → go to login
-  // (AuthContext will auto-sign-out, this is a safety net)
-  if (!userProfile) {
-    return <Navigate to="/login?reason=no_profile" replace />;
-  }
-
-  // Logged in but wrong role → 403
-  if (allowedRoles && !allowedRoles.includes(userProfile.role)) {
+  // If profile is still loading/missing but we have a session, let them through
+  // The individual pages handle missing student_id gracefully (show 0 stats)
+  // AuthContext will auto-repair the profile in the background
+  
+  // Logged in with profile but wrong role → 403
+  if (userProfile && allowedRoles && !allowedRoles.includes(userProfile.role)) {
     return <Navigate to="/403" replace />;
   }
 

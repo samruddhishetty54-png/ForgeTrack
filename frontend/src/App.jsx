@@ -18,6 +18,7 @@ import BulkAttendance from './pages/BulkAttendance';
 import Upcoming from './pages/student/Upcoming';
 import MyAttendance from './pages/student/MyAttendance';
 import StudentMaterials from './pages/student/StudentMaterials';
+import StudentDashboard from './pages/student/StudentDashboard';
 
 
 
@@ -31,27 +32,23 @@ const RootRedirect = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!userProfile) {
-    // Session exists but profile fetch failed or is missing
-    // Don't redirect to /login here to avoid infinite loops
-    // Instead, let RoleGuard handle the 'no profile' state or show an error
-    return <div className="flex h-screen items-center justify-center bg-void text-fg-secondary">
-      <div className="text-center">
-        <p className="mb-4">Profile not found.</p>
-        <button onClick={() => window.location.href = '/login?reason=no_profile'} className="btn-secondary">
-          Return to Login
-        </button>
-      </div>
-    </div>;
+  // If profile is loaded, use role to redirect
+  if (userProfile) {
+    if (userProfile.role === 'mentor') {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <Navigate to="/me/dashboard" replace />;
   }
-  
-  if (userProfile.role === 'mentor') {
-    return <Navigate to="/dashboard" replace />;
-  } else if (userProfile.role === 'student') {
-    return <Navigate to="/me/attendance" replace />;
+
+  // Profile not yet loaded or missing — guess from email
+  const email = session.user?.email || '';
+  const isStudent = email.endsWith('@example.com') || email.endsWith('@forge.local');
+  if (isStudent) {
+    return <Navigate to="/me/dashboard" replace />;
   }
-  
-  return <Navigate to="/login" replace />;
+
+  // Default: assume mentor
+  return <Navigate to="/dashboard" replace />;
 };
 
 
@@ -110,6 +107,7 @@ function App() {
           
           {/* Student Routes */}
           <Route element={<RoleGuard allowedRoles={['student']} />}>
+            <Route path="/me/dashboard" element={<StudentDashboard />} />
             <Route path="/me/attendance" element={<MyAttendance />} />
             <Route path="/me/upcoming" element={<Upcoming />} />
             <Route path="/me/materials" element={<StudentMaterials />} />
