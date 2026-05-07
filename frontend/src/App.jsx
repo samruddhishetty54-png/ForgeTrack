@@ -14,10 +14,7 @@ import MarkAttendance from './pages/MarkAttendance';
 import StudentHistory from './pages/StudentHistory';
 import MentorMaterials from './pages/MentorMaterials';
 
-// Placeholders for remaining
-import { 
-  UploadCSV
-} from './pages/Placeholders';
+import BulkAttendance from './pages/BulkAttendance';
 import Upcoming from './pages/student/Upcoming';
 import MyAttendance from './pages/student/MyAttendance';
 import StudentMaterials from './pages/student/StudentMaterials';
@@ -108,7 +105,7 @@ function App() {
             <Route path="/attendance" element={<MarkAttendance />} />
             <Route path="/history" element={<StudentHistory />} />
             <Route path="/materials" element={<MentorMaterials />} />
-            <Route path="/upload" element={<UploadCSV />} />
+            <Route path="/upload" element={<BulkAttendance />} />
           </Route>
           
           {/* Student Routes */}

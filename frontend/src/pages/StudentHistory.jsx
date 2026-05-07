@@ -200,7 +200,20 @@ const StudentHistory = () => {
                     <Award className="w-5 h-5 text-accent-glow" />
                     <span className="text-[11px] font-bold text-fg-tertiary uppercase tracking-widest">STREAK</span>
                   </div>
-                  <div className="text-[28px] font-bold text-fg-primary">8 Sessions</div>
+                  <div className="text-[28px] font-bold text-fg-primary">
+                    {(() => {
+                      let streak = 0;
+                      const sortedSessions = [...attendanceData].sort((a, b) => new Date(b.date) - new Date(a.date));
+                      for (const sess of sortedSessions) {
+                        if (sess.attendance?.present) {
+                          streak++;
+                        } else if (sess.attendance?.present === false) {
+                          break;
+                        }
+                      }
+                      return `${streak} Sessions`;
+                    })()}
+                  </div>
                 </div>
                 <div className="bg-void/50 border border-white/5 rounded-[32px] p-6">
                   <div className="flex items-center gap-3 mb-3">

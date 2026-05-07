@@ -92,13 +92,15 @@ const Sidebar = () => {
       </nav>
 
       {/* Logout Footer */}
-      <div className="p-6 border-t border-white/5">
+      <div className="p-4 border-t border-white/5 mt-auto">
         <button 
           onClick={signOut}
-          className="w-full flex items-center gap-4 h-14 px-5 rounded-[20px] text-fg-tertiary hover:bg-danger/5 hover:text-danger transition-all group"
+          className="w-full flex items-center gap-4 h-[52px] px-4 rounded-2xl text-fg-tertiary hover:bg-danger/10 hover:text-danger hover:border-danger/20 border border-transparent transition-all duration-300 group"
         >
-          <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-[15px] font-black tracking-tighter">Logout</span>
+          <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-danger/20 transition-colors">
+            <LogOut className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          </div>
+          <span className="text-[14px] font-semibold tracking-tight">Logout Session</span>
         </button>
       </div>
     </aside>

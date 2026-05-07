@@ -210,29 +210,44 @@ const Dashboard = () => {
           <h2 className="text-[24px] font-bold text-fg-primary mb-10">Priority Tasks</h2>
           
           <div className="space-y-6">
-            {/* Task 1 */}
+            {/* Task: Low Attendance Intervention */}
+            {stats.atRiskCount > 0 && (
+              <div className="bg-[#0B0B11]/50 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-danger/50 transition-all">
+                <div className="flex gap-4">
+                  <div className="w-2 h-2 rounded-full bg-danger mt-2 shadow-[0_0_8px_rgba(244,63,94,0.8)]"></div>
+                  <Link to="/history" className="flex-1">
+                    <h4 className="font-bold text-fg-primary mb-1">Attendance Intervention</h4>
+                    <p className="text-body-sm text-fg-tertiary leading-relaxed">
+                      {stats.atRiskCount} students are currently below the 75% threshold.
+                    </p>
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Task: Upload Pending Data */}
             <div className="bg-[#0B0B11]/50 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-accent-glow/50 transition-all">
               <div className="flex gap-4">
                 <div className="w-2 h-2 rounded-full bg-accent-glow mt-2 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
-                <div>
-                  <h4 className="font-bold text-fg-primary mb-1">Import Batch Data</h4>
+                <Link to="/upload" className="flex-1">
+                  <h4 className="font-bold text-fg-primary mb-1">Bulk Sync Required</h4>
                   <p className="text-body-sm text-fg-tertiary leading-relaxed">
-                    New CSV records available for Month 6.
+                    Import batch data from the latest program spreadsheets.
                   </p>
-                </div>
+                </Link>
               </div>
             </div>
 
-            {/* Task 2 */}
+            {/* Task: Content Update */}
             <div className="bg-[#0B0B11]/50 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-success/50 transition-all">
               <div className="flex gap-4">
                 <div className="w-2 h-2 rounded-full bg-success mt-2 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-                <div>
-                  <h4 className="font-bold text-fg-primary mb-1">Check Low Attendance</h4>
+                <Link to="/materials" className="flex-1">
+                  <h4 className="font-bold text-fg-primary mb-1">Resource Linking</h4>
                   <p className="text-body-sm text-fg-tertiary leading-relaxed">
-                    {stats.atRiskCount} students need intervention.
+                    Ensure all recent sessions have materials attached.
                   </p>
-                </div>
+                </Link>
               </div>
             </div>
           </div>
