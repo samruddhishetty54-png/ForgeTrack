@@ -15,7 +15,7 @@ import {
   History,
   Info
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const BulkAttendance = () => {
   const { userProfile } = useAuth();
@@ -173,10 +173,13 @@ const BulkAttendance = () => {
         return;
       }
 
-      const { data: existingSessions, error: sessError } = await supabase
+      const fetchPromise = supabase
         .from('sessions')
         .select('date, topic')
         .in('date', uniqueDates);
+
+      const { data: existingSessions, error: sessError } = await fetchPromise;
+      if (sessError) console.error("Session Fetch Error:", sessError);
 
       if (sessError) throw sessError;
 

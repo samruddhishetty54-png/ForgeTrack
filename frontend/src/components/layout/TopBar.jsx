@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { Search } from 'lucide-react';
 
 const TopBar = () => {
@@ -29,7 +29,7 @@ const TopBar = () => {
           <Search className="w-4 h-4 text-fg-tertiary absolute left-5 group-focus-within:text-accent-glow transition-colors" />
           <input 
             type="text" 
-            placeholder="Search..." 
+            placeholder="Search students, sessions..." 
             className="w-[320px] lg:w-[420px] bg-white/[0.03] border border-white/5 rounded-full h-11 pl-12 pr-6 text-[14px] text-fg-primary placeholder:text-fg-tertiary focus:outline-none focus:border-accent-glow/30 focus:bg-white/[0.05] transition-all"
           />
         </div>

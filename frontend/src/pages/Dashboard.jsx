@@ -1,85 +1,118 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
-import Skeleton from '../components/ui/Skeleton';
-import { 
-  Users, 
-  TrendingUp, 
-  AlertTriangle, 
-  Calendar,
-  ArrowRight,
-  Edit2
+import { useAuth } from '../hooks/useAuth';
+import {
+  CalendarDays,
+  Percent,
+  Users,
+  Clock,
+  Plus,
+  Activity,
+  ArrowUpRight,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 
 const Dashboard = () => {
   const { userProfile } = useAuth();
   const [stats, setStats] = useState(null);
+  const [todaySession, setTodaySession] = useState(null);
+  const [programOverview, setProgramOverview] = useState(null);
+  const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   useEffect(() => {
     async function fetchDashboardData() {
       try {
         setLoading(true);
-        setError(null);
-        
-        // 1. Cohort Size (Active Students)
-        const { count: activeStudents, error: stuErr } = await supabase
+
+        // 1. Total Sessions
+        const { count: totalSessions } = await supabase
+          .from('sessions')
+          .select('*', { count: 'exact', head: true });
+
+        // 2. Active Students
+        const { count: activeStudents } = await supabase
           .from('students')
           .select('*', { count: 'exact', head: true })
           .eq('is_active', true);
-        if (stuErr) throw stuErr;
 
-        // 2. Average Attendance
-        const { data: allAtt, error: allAttErr } = await supabase
+        // 3. Overall Attendance %
+        const { data: allAtt } = await supabase
           .from('attendance')
           .select('present');
-        if (allAttErr) throw allAttErr;
-
         let avgAttendance = 0;
         if (allAtt && allAtt.length > 0) {
           avgAttendance = (allAtt.filter(a => a.present).length / allAtt.length) * 100;
         }
 
-        // 3. Students At Risk (Below 75%)
-        const { data: studentAtt, error: riskErr } = await supabase
-          .from('attendance')
-          .select('student_id, present');
-        
-        let atRiskCount = 0;
-        if (studentAtt && studentAtt.length > 0) {
-          const studentMap = {};
-          studentAtt.forEach(a => {
-            if (!studentMap[a.student_id]) studentMap[a.student_id] = { total: 0, present: 0 };
-            studentMap[a.student_id].total++;
-            if (a.present) studentMap[a.student_id].present++;
-          });
-          
-          atRiskCount = Object.values(studentMap).filter(s => (s.present / s.total) < 0.75).length;
-        } else {
-          // If no attendance records yet, all active students are technically "at risk" or just 0
-          atRiskCount = 0;
-        }
-
-        // 4. Latest Session
-        const { data: latestSessions, error: latestErr } = await supabase
+        // 4. Last Session Date
+        const { data: lastSessionData } = await supabase
           .from('sessions')
-          .select('*')
+          .select('date, topic')
           .order('date', { ascending: false })
           .limit(1);
-        if (latestErr) throw latestErr;
-        const latestSession = latestSessions?.[0] || null;
+        const lastSession = lastSessionData?.[0] || null;
 
         setStats({
+          totalSessions: totalSessions ?? 0,
           activeStudents: activeStudents ?? 0,
-          avgAttendance: Math.round(avgAttendance),
-          atRiskCount,
-          latestSession
+          avgAttendance: parseFloat(avgAttendance.toFixed(1)),
+          lastSession,
         });
+
+        // 5. Today's Session
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data: todaySess } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('date', todayStr)
+          .limit(1)
+          .maybeSingle();
+        setTodaySession(todaySess || null);
+
+        // 6. Program Overview — per-student attendance rates
+        const { data: studentAtt } = await supabase
+          .from('attendance')
+          .select('student_id, present, students(name)');
+
+        if (studentAtt && studentAtt.length > 0) {
+          const map = {};
+          studentAtt.forEach(a => {
+            const sid = a.student_id;
+            const name = a.students?.name || 'Unknown';
+            if (!map[sid]) map[sid] = { name, total: 0, present: 0 };
+            map[sid].total++;
+            if (a.present) map[sid].present++;
+          });
+          const entries = Object.values(map).map(s => ({
+            name: s.name,
+            pct: parseFloat(((s.present / s.total) * 100).toFixed(1)),
+          }));
+          const sorted = [...entries].sort((a, b) => b.pct - a.pct);
+          setProgramOverview({
+            highest: sorted[0] || null,
+            lowest: sorted[sorted.length - 1] || null,
+          });
+        }
+
+        // 7. Recent Activity — last 5 import_log or sessions
+        const { data: importLogs } = await supabase
+          .from('import_log')
+          .select('filename, uploaded_at, imported_rows, status')
+          .order('uploaded_at', { ascending: false })
+          .limit(5);
+        setRecentActivity(importLogs || []);
+
       } catch (err) {
         console.error('Dashboard fetch error:', err);
-        setError(err.message || 'Failed to fetch data from Supabase.');
       } finally {
         setLoading(false);
       }
@@ -88,169 +121,232 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const timeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
   if (loading) {
     return (
-      <div className="space-y-10 pb-12 animate-pulse">
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-6 w-96" />
+      <div className="space-y-6 pb-12 animate-pulse">
+        <div className="h-16 w-72 bg-white/5 rounded-xl" />
+        <div className="grid grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <div key={i} className="h-28 bg-white/5 rounded-2xl" />)}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-40 rounded-3xl" />)}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-44 bg-white/5 rounded-2xl" />
+          <div className="h-44 bg-white/5 rounded-2xl" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="col-span-2 h-64 rounded-3xl" />
-          <Skeleton className="h-64 rounded-3xl" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-52 bg-white/5 rounded-2xl" />
+          <div className="h-52 bg-white/5 rounded-2xl" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-10 pb-12">
-      {/* Header Section */}
+    <div className="space-y-6 pb-12">
+      {/* Welcome Header */}
       <div>
-        <h1 className="text-[40px] font-bold text-fg-primary tracking-tight mb-2">ForgeTrack Intelligence</h1>
-        <p className="text-body-lg text-fg-tertiary">A birds-eye view of your cohort's performance and engagement.</p>
+        <h1 className="text-[32px] font-bold text-fg-primary tracking-tight leading-tight">
+          Welcome back, {userProfile?.display_name?.split(' ')[0] || 'Mentor'}
+        </h1>
+        <p className="text-[13px] text-fg-tertiary mt-1">{today}</p>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Cohort Size */}
-        <div className="card bg-surface-raised border border-white/5 rounded-[32px] p-8 group hover:border-white/10 transition-all">
-          <div className="flex justify-between items-start mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-accent-glow/10 border border-accent-glow/20 flex items-center justify-center text-accent-glow group-hover:scale-110 transition-transform">
-              <Users className="w-6 h-6" />
-            </div>
-            <span className="text-[12px] font-bold text-fg-tertiary tracking-[0.15em] uppercase">COHORT SIZE</span>
+      {/* ── Row 1: 4 KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Sessions */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary">Total Sessions</span>
+            <CalendarDays className="w-4 h-4 text-fg-tertiary/60" />
           </div>
-          <div>
-            <div className="text-[48px] font-bold text-fg-primary leading-none mb-2">{stats.activeStudents}</div>
-            <div className="text-body-sm text-fg-tertiary">Active Students</div>
+          <div className="text-[40px] font-bold text-fg-primary leading-none">
+            {stats?.totalSessions ?? 0}
           </div>
         </div>
 
-        {/* Avg Attendance */}
-        <div className="card bg-surface-raised border border-white/5 rounded-[32px] p-8 group hover:border-white/10 transition-all">
-          <div className="flex justify-between items-start mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-success/10 border border-success/20 flex items-center justify-center text-success group-hover:scale-110 transition-transform">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <span className="text-[12px] font-bold text-fg-tertiary tracking-[0.15em] uppercase">AVG ATTENDANCE</span>
+        {/* Overall Attendance */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary">Overall Attendance</span>
+            <Percent className="w-4 h-4 text-fg-tertiary/60" />
           </div>
-          <div>
-            <div className="text-[48px] font-bold text-fg-primary leading-none mb-2">{stats.avgAttendance}%</div>
-            <div className="text-body-sm text-fg-tertiary">Across all sessions</div>
+          <div className="text-[40px] font-bold text-fg-primary leading-none">
+            {stats?.avgAttendance ?? 0}%
           </div>
         </div>
 
-        {/* At Risk */}
-        <div className="card bg-surface-raised border border-white/5 rounded-[32px] p-8 group hover:border-white/10 transition-all">
-          <div className="flex justify-between items-start mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger group-hover:scale-110 transition-transform">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <span className="text-[12px] font-bold text-fg-tertiary tracking-[0.15em] uppercase">AT RISK</span>
+        {/* Active Students */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary">Active Students</span>
+            <Users className="w-4 h-4 text-fg-tertiary/60" />
           </div>
-          <div>
-            <div className="text-[48px] font-bold text-fg-primary leading-none mb-2">{stats.atRiskCount}</div>
-            <div className="text-body-sm text-fg-tertiary">Below 75% threshold</div>
+          <div className="text-[40px] font-bold text-fg-primary leading-none">
+            {stats?.activeStudents ?? 0}
           </div>
         </div>
 
-        {/* Next Step */}
-        <Link to="/attendance" className="card bg-accent-glow/10 border border-accent-glow/20 rounded-[32px] p-8 group hover:bg-accent-glow/15 transition-all">
-          <div className="flex justify-between items-start mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-accent-glow border border-accent-glow/50 flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(99,102,241,0.3)]">
-              <Calendar className="w-6 h-6" />
-            </div>
-            <span className="text-[12px] font-bold text-fg-tertiary tracking-[0.15em] uppercase">NEXT STEP</span>
+        {/* Last Session */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary">Last Session</span>
+            <Clock className="w-4 h-4 text-fg-tertiary/60" />
           </div>
-          <div>
-            <div className="flex items-center gap-3 text-fg-primary group-hover:gap-5 transition-all duration-300">
-              <span className="text-[20px] font-bold">Mark Attendance</span>
-              <ArrowRight className="w-6 h-6" />
-            </div>
+          <div className="text-[22px] font-bold text-fg-primary leading-tight">
+            {stats?.lastSession ? formatDate(stats.lastSession.date) : 'No sessions'}
           </div>
-        </Link>
+        </div>
       </div>
 
-      {/* Secondary Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Latest Session Activity */}
-        <div className="lg:col-span-2 card bg-surface-raised border border-white/5 rounded-[40px] p-10">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-[24px] font-bold text-fg-primary">Latest Session Activity</h2>
-            <div className="text-fg-tertiary font-mono text-sm tracking-widest">
-              {stats.latestSession?.date || 'N/A'}
-            </div>
+      {/* ── Row 2: Today's Session + Today's Attendance ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Today's Session */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6">
+          <div className="mb-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary">Today's Session</span>
           </div>
-
-          <div className="bg-[#0B0B11] rounded-[32px] p-8 border border-white/5 flex justify-between items-center">
-            <div>
-              <div className="text-[12px] font-bold text-accent-glow uppercase tracking-[0.2em] mb-3">CURRENT TOPIC</div>
-              <h3 className="text-[32px] font-bold text-fg-primary mb-2 capitalize">
-                {stats.latestSession?.topic || 'No sessions found'}
-              </h3>
-              <p className="text-fg-tertiary italic">
-                {stats.latestSession?.notes || 'No notes for this session'}
-              </p>
-            </div>
-            {stats.latestSession && (
-              <Link to="/attendance" className="bg-white text-[#0B0B11] hover:bg-fg-secondary font-bold py-4 px-8 rounded-2xl transition-all flex items-center gap-2 group">
-                <Edit2 className="w-4 h-4" />
-                Edit Attendance
+          {todaySession ? (
+            <div className="space-y-3">
+              <p className="text-fg-primary font-semibold text-[16px]">{todaySession.topic || 'Untitled Session'}</p>
+              <p className="text-fg-tertiary text-[13px]">{todaySession.notes || 'No notes added.'}</p>
+              <Link
+                to="/attendance"
+                className="inline-flex items-center gap-2 bg-accent-glow text-white text-[13px] font-semibold px-4 py-2 rounded-lg hover:bg-accent-glow/90 transition-colors mt-2"
+              >
+                Mark Attendance
               </Link>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-fg-tertiary text-[14px]">No session scheduled for today.</p>
+              <Link
+                to="/attendance"
+                className="inline-flex items-center gap-2 bg-accent-glow text-white text-[13px] font-semibold px-4 py-2 rounded-lg hover:bg-accent-glow/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Session
+              </Link>
+            </div>
+          )}
         </div>
 
-        {/* Priority Tasks */}
-        <div className="card bg-surface-raised border border-white/5 rounded-[40px] p-10">
-          <h2 className="text-[24px] font-bold text-fg-primary mb-10">Priority Tasks</h2>
-          
-          <div className="space-y-6">
-            {/* Task: Low Attendance Intervention */}
-            {stats.atRiskCount > 0 && (
-              <div className="bg-[#0B0B11]/50 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-danger/50 transition-all">
-                <div className="flex gap-4">
-                  <div className="w-2 h-2 rounded-full bg-danger mt-2 shadow-[0_0_8px_rgba(244,63,94,0.8)]"></div>
-                  <Link to="/history" className="flex-1">
-                    <h4 className="font-bold text-fg-primary mb-1">Attendance Intervention</h4>
-                    <p className="text-body-sm text-fg-tertiary leading-relaxed">
-                      {stats.atRiskCount} students are currently below the 75% threshold.
-                    </p>
-                  </Link>
+        {/* Today's Attendance */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6">
+          <div className="mb-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary">Today's Attendance</span>
+          </div>
+          {todaySession ? (
+            <div className="space-y-2">
+              <p className="text-fg-secondary text-[14px]">Session is scheduled. Mark attendance to begin tracking.</p>
+              <Link
+                to="/attendance"
+                className="inline-flex items-center gap-2 text-accent-glow text-[13px] font-semibold hover:underline mt-1"
+              >
+                Go to Attendance <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          ) : (
+            <p className="text-fg-tertiary text-[14px]">Create a session first to mark attendance.</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Row 3: Program Overview + Recent Activity ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Program Overview */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6">
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary block mb-5">Program Overview</span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] text-fg-secondary">Total Sessions</span>
+              <span className="text-[14px] font-bold text-fg-primary">{stats?.totalSessions ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] text-fg-secondary">Average Attendance</span>
+              <span className="text-[14px] font-bold text-fg-primary">{stats?.avgAttendance ?? 0}%</span>
+            </div>
+            <div className="h-px bg-white/5 my-2" />
+            {/* Highest */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-success" />
+                <div>
+                  <p className="text-[10px] text-fg-tertiary uppercase tracking-wider">Highest Attendance</p>
+                  <p className="text-[13px] font-bold text-fg-primary">
+                    {programOverview?.highest?.name || '—'}
+                  </p>
                 </div>
               </div>
-            )}
-
-            {/* Task: Upload Pending Data */}
-            <div className="bg-[#0B0B11]/50 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-accent-glow/50 transition-all">
-              <div className="flex gap-4">
-                <div className="w-2 h-2 rounded-full bg-accent-glow mt-2 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
-                <Link to="/upload" className="flex-1">
-                  <h4 className="font-bold text-fg-primary mb-1">Bulk Sync Required</h4>
-                  <p className="text-body-sm text-fg-tertiary leading-relaxed">
-                    Import batch data from the latest program spreadsheets.
-                  </p>
-                </Link>
-              </div>
+              {programOverview?.highest && (
+                <span className="text-[13px] font-bold text-success">{programOverview.highest.pct}%</span>
+              )}
             </div>
-
-            {/* Task: Content Update */}
-            <div className="bg-[#0B0B11]/50 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-success/50 transition-all">
-              <div className="flex gap-4">
-                <div className="w-2 h-2 rounded-full bg-success mt-2 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-                <Link to="/materials" className="flex-1">
-                  <h4 className="font-bold text-fg-primary mb-1">Resource Linking</h4>
-                  <p className="text-body-sm text-fg-tertiary leading-relaxed">
-                    Ensure all recent sessions have materials attached.
+            {/* Lowest */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-danger" />
+                <div>
+                  <p className="text-[10px] text-fg-tertiary uppercase tracking-wider">Lowest Attendance</p>
+                  <p className="text-[13px] font-bold text-fg-primary">
+                    {programOverview?.lowest?.name || '—'}
                   </p>
-                </Link>
+                </div>
               </div>
+              {programOverview?.lowest && (
+                <span className="text-[13px] font-bold text-danger">{programOverview.lowest.pct}%</span>
+              )}
             </div>
           </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6">
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-fg-tertiary block mb-5">Recent Activity</span>
+          {recentActivity.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-28 gap-2">
+              <Activity className="w-8 h-8 text-fg-tertiary/30" />
+              <p className="text-fg-tertiary text-[13px]">No recent activity found.</p>
+              <Link to="/upload" className="text-accent-glow text-[12px] font-semibold hover:underline">
+                Upload a CSV to get started →
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentActivity.map((log, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="w-5 h-5 rounded-full bg-accent-glow/20 border border-accent-glow/30 flex items-center justify-center mt-0.5 shrink-0">
+                    <Activity className="w-2.5 h-2.5 text-accent-glow" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-fg-primary truncate">
+                      Marked attendance for{' '}
+                      <span className="font-semibold">{log.filename?.replace(/\.[^/.]+$/, '') || 'Import'}</span>
+                    </p>
+                    <p className="text-[11px] text-fg-tertiary">{timeAgo(log.uploaded_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

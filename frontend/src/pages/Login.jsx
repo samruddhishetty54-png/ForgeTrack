@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { Loader2, AlertTriangle, Fingerprint, Mail, ShieldCheck, Database } from 'lucide-react';
 
 const Login = () => {
@@ -12,7 +12,7 @@ const Login = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, userProfile, loading: authLoading } = useAuth();
+  const { session, userProfile, profileError, loading: authLoading } = useAuth();
   const [dbStatus, setDbStatus] = useState({ students: 0, sessions: 0, checking: true });
 
   const searchParams = new URLSearchParams(location.search);
@@ -35,6 +35,16 @@ const Login = () => {
     checkDb();
   }, []);
 
+  useEffect(() => {
+    if (profileError === 'NOT_FOUND') {
+      setError('Your authenticated account exists, but no platform profile was found. Please run the RECOVERY script.');
+      setSubmitting(false);
+    } else if (profileError === 'FETCH_ERROR') {
+      setError('Failed to fetch your platform profile. This may be a database connection or RLS issue.');
+      setSubmitting(false);
+    }
+  }, [profileError]);
+
   // Only auto-redirect if we have BOTH a session AND a loaded profile
   // If profile is null (missing from DB), stay on login so user can see the error
   if (!authLoading && session && userProfile) {
@@ -46,28 +56,54 @@ const Login = () => {
     setSubmitting(true);
     setError(null);
 
-    const email = isMentor ? identifier.trim().toLowerCase() : `${identifier.trim().toLowerCase()}@example.com`;
-    // For students, the default password is their USN (usually uppercase)
-    const authPassword = isMentor ? password : password.trim().toUpperCase();
+    try {
+      let email = isMentor ? identifier.trim().toLowerCase() : `${identifier.trim().toLowerCase()}@example.com`;
+      // For students, the default password is their USN (usually uppercase)
+      const authPassword = isMentor ? password : password.trim().toUpperCase();
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: authPassword,
-    });
+      let { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: authPassword,
+      });
 
-    if (signInError) {
-      if (signInError.message.includes('Invalid login credentials')) {
-        setError(
-          isMentor
-            ? 'Invalid email or password. Verify your mentor credentials.'
-            : `Invalid USN or password. Use your USN as the default password.`
-        );
-      } else {
-        setError(signInError.message);
+      // Fallback for students created with the database trigger using @forge.local
+      if (signInError && !isMentor && signInError.message.includes('Invalid login credentials')) {
+        email = `${identifier.trim().toLowerCase()}@forge.local`;
+        const fallbackResult = await supabase.auth.signInWithPassword({
+          email,
+          password: authPassword,
+        });
+        signInError = fallbackResult.error;
       }
-      setSubmitting(false);
-    } else {
-      navigate(location.state?.from?.pathname || '/');
+
+      if (signInError) {
+        if (signInError.message.includes('Invalid login credentials')) {
+          setError(
+            isMentor
+              ? 'Invalid email or password. Verify your mentor credentials.'
+              : `Invalid USN or password. Use your USN as the default password.`
+          );
+        } else {
+          setError(signInError.message);
+        }
+      } else {
+        // We no longer call navigate('/') here manually.
+        // Instead, we wait for AuthContext to update the userProfile.
+        // The Navigate component at line 47 will handle the redirect once profile is ready.
+        console.log('[Login] Sign in successful, waiting for profile...');
+      }
+    } catch (err) {
+      setError(err.message || 'An unexpected error occurred during login.');
+    } finally {
+      // Only stop loading if we don't have a session at all
+      // If we have a session, we wait for the profileError useEffect to stop submitting
+      // or for the Navigate component to unmount us.
+      if (!session && !signInError) {
+        // If no session and no error, something is weird, but stop spinning
+        setSubmitting(false);
+      } else if (signInError) {
+        setSubmitting(false);
+      }
     }
   };
 

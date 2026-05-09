@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import RoleGuard from './components/RoleGuard';
 import AppLayout from './components/layout/AppLayout';
 import Login from './pages/Login';
@@ -103,6 +103,7 @@ function App() {
             <Route path="/history" element={<StudentHistory />} />
             <Route path="/materials" element={<MentorMaterials />} />
             <Route path="/upload" element={<BulkAttendance />} />
+            <Route path="/assignments" element={<Navigate to="/dashboard" replace />} />
           </Route>
           
           {/* Student Routes */}

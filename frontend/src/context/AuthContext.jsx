@@ -1,18 +1,27 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [profileError, setProfileError] = useState(null); // null | 'NOT_FOUND' | 'FETCH_ERROR'
+  const [profileError, setProfileError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const isSigningOut = useRef(false); // guard against duplicate signout calls
+  
+  const isSigningOut = useRef(false);
+  const fetchInProgress = useRef(null); // stores the userId currently being fetched
 
-  const fetchUserProfile = useCallback(async (userId, authUser = null) => {
-    console.log('[AuthContext] Fetching profile for:', userId);
+  const fetchUserProfile = useCallback(async (userId, authUser) => {
+    // Prevent redundant or overlapping fetches
+    if (fetchInProgress.current === userId) return;
+    if (userProfile && userProfile.id === userId && !profileError) return;
+
+    console.log('[AuthContext] Starting profile fetch for:', userId);
+    fetchInProgress.current = userId;
+    setLoading(true);
     setProfileError(null);
+
     try {
       const { data, error } = await supabase
         .from('users')
@@ -22,71 +31,31 @@ export const AuthProvider = ({ children }) => {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          console.warn('[AuthContext] Profile row missing in public.users — attempting auto-repair...');
-          
+          console.warn('[AuthContext] Profile missing, attempting auto-repair...');
           const email = authUser?.email || '';
-          const isStudentEmail = email.endsWith('@example.com') || email.endsWith('@forge.local');
+          const isStudent = email.endsWith('@example.com') || email.endsWith('@forge.local');
+          const role = isStudent ? 'student' : 'mentor';
 
-          if (isStudentEmail) {
-            // Extract USN from email (e.g. "4sh24cs001@example.com" → "4SH24CS001")
-            const usn = email.split('@')[0].toUpperCase();
-            console.log('[AuthContext] Looking up student by USN:', usn);
+          // Basic repair attempt
+          const { data: repaired, error: repairErr } = await supabase
+            .from('users')
+            .insert([{
+              id: userId,
+              email: email,
+              role: role,
+              display_name: authUser?.user_metadata?.full_name || email.split('@')[0]
+            }])
+            .select()
+            .single();
 
-            const { data: student, error: stuErr } = await supabase
-              .from('students')
-              .select('id, name')
-              .eq('usn', usn)
-              .single();
-
-            if (!stuErr && student) {
-              console.log('[AuthContext] Found student record, creating profile...');
-              const { data: newProfile, error: insertErr } = await supabase
-                .from('users')
-                .insert([{
-                  id: userId,
-                  email: email,
-                  role: 'student',
-                  student_id: student.id,
-                  display_name: student.name
-                }])
-                .select()
-                .single();
-
-              if (!insertErr && newProfile) {
-                console.log('[AuthContext] Student profile auto-repaired successfully');
-                setUserProfile(newProfile);
-                setProfileError(null);
-                return;
-              } else {
-                console.error('[AuthContext] Profile insert failed:', insertErr?.message);
-              }
-            } else {
-              console.warn('[AuthContext] No student found for USN:', usn);
-            }
+          if (!repairErr && repaired) {
+            console.log('[AuthContext] Auto-repair success');
+            setUserProfile(repaired);
           } else {
-            // Non-student (mentor) auto-repair
-            console.log('[AuthContext] Auto-repairing mentor profile...');
-            const { data: repairData, error: repairError } = await supabase
-              .from('users')
-              .insert([{
-                id: authUser.id,
-                email: email,
-                role: 'mentor',
-                display_name: authUser.user_metadata?.full_name || email.split('@')[0]
-              }])
-              .select()
-              .single();
-            
-            if (!repairError && repairData) {
-              setUserProfile(repairData);
-              setProfileError(null);
-              return;
-            }
+            console.error('[AuthContext] Auto-repair failed:', repairErr?.message);
+            setProfileError('NOT_FOUND');
+            setUserProfile(null);
           }
-
-          // Auto-repair failed — set error state
-          setProfileError('NOT_FOUND');
-          setUserProfile(null);
         } else {
           console.error('[AuthContext] Profile fetch error:', error.message);
           setProfileError('FETCH_ERROR');
@@ -95,72 +64,60 @@ export const AuthProvider = ({ children }) => {
       } else {
         console.log('[AuthContext] Profile loaded:', data.role);
         setUserProfile(data);
-        setProfileError(null);
       }
     } catch (err) {
-      console.error('[AuthContext] Unexpected fetch error:', err);
+      console.error('[AuthContext] Unexpected error:', err);
       setProfileError('FETCH_ERROR');
-      setUserProfile(null);
     } finally {
+      fetchInProgress.current = null;
       setLoading(false);
     }
-  }, []);
+  }, [userProfile, profileError]);
 
   useEffect(() => {
     let mounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log('[AuthContext] Auth event:', event);
-        
-        if (!mounted) return;
-        if (isSigningOut.current) return; // skip events during signout
-
-        setSession(currentSession);
-        
-        if (currentSession?.user) {
-          await fetchUserProfile(currentSession.user.id, currentSession.user);
-        } else {
-          setUserProfile(null);
-          setProfileError(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+    // Initial check
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
       if (!mounted) return;
-      setSession(initialSession);
-      if (initialSession?.user) {
-        fetchUserProfile(initialSession.user.id, initialSession.user);
+      setSession(s);
+      if (s?.user) {
+        fetchUserProfile(s.user.id, s.user);
       } else {
+        setLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (!mounted || isSigningOut.current) return;
+      console.log('[AuthContext] Auth event:', event);
+      
+      setSession(s);
+      if (s?.user) {
+        fetchUserProfile(s.user.id, s.user);
+      } else {
+        setUserProfile(null);
         setLoading(false);
       }
     });
 
     return () => {
       mounted = false;
-      subscription?.unsubscribe();
+      subscription.unsubscribe();
     };
   }, [fetchUserProfile]);
 
   const signOut = async () => {
-    if (isSigningOut.current) return; // prevent duplicate signout calls
+    if (isSigningOut.current) return;
     isSigningOut.current = true;
-    console.log('[AuthContext] Signing out...');
+    setLoading(true);
     try {
-      setLoading(true);
-      Object.keys(localStorage).forEach(k => {
-        if (k.startsWith('sb-')) localStorage.removeItem(k);
-      });
       await supabase.auth.signOut();
-    } finally {
-      setSession(null);
       setUserProfile(null);
-      setProfileError(null);
-      setLoading(false);
+      setSession(null);
+    } finally {
       isSigningOut.current = false;
+      setLoading(false);
       window.location.href = '/login';
     }
   };
@@ -172,4 +129,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+// useAuth will be moved to src/hooks/useAuth.js to satisfy Vite Fast Refresh requirements
