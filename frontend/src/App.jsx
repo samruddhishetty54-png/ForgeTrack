@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard';
 import MarkAttendance from './pages/MarkAttendance';
 import StudentHistory from './pages/StudentHistory';
 import MentorMaterials from './pages/MentorMaterials';
+import Assignments from './pages/Assignments';
 
 import BulkAttendance from './pages/BulkAttendance';
 import Upcoming from './pages/student/Upcoming';
@@ -103,7 +104,7 @@ function App() {
             <Route path="/history" element={<StudentHistory />} />
             <Route path="/materials" element={<MentorMaterials />} />
             <Route path="/upload" element={<BulkAttendance />} />
-            <Route path="/assignments" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/assignments" element={<Assignments />} />
           </Route>
           
           {/* Student Routes */}
