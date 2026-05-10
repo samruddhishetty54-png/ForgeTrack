@@ -56,24 +56,38 @@ const Login = () => {
     setSubmitting(true);
     setError(null);
 
+    let signInError = null;
+
     try {
-      let email = isMentor ? identifier.trim().toLowerCase() : `${identifier.trim().toLowerCase()}@example.com`;
-      // For students, the default password is their USN (usually uppercase)
-      const authPassword = isMentor ? password : password.trim().toUpperCase();
+      if (isMentor) {
+        // Mentor login: use email as-is
+        const result = await supabase.auth.signInWithPassword({
+          email: identifier.trim().toLowerCase(),
+          password: password,
+        });
+        signInError = result.error;
+      } else {
+        // Student login: USN as identifier, UPPERCASE USN as default password
+        const usn = identifier.trim().toUpperCase();
+        const authPassword = password.trim().toUpperCase();
 
-      let { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: authPassword,
-      });
-
-      // Fallback for students created with the database trigger using @forge.local
-      if (signInError && !isMentor && signInError.message.includes('Invalid login credentials')) {
-        email = `${identifier.trim().toLowerCase()}@forge.local`;
-        const fallbackResult = await supabase.auth.signInWithPassword({
-          email,
+        // Primary: @forge.local (created by the on_student_created trigger)
+        const primaryEmail = `${usn.toLowerCase()}@forge.local`;
+        let result = await supabase.auth.signInWithPassword({
+          email: primaryEmail,
           password: authPassword,
         });
-        signInError = fallbackResult.error;
+        signInError = result.error;
+
+        // Fallback: @example.com (created by older recovery scripts)
+        if (signInError && signInError.message.includes('Invalid login credentials')) {
+          const fallbackEmail = `${usn.toLowerCase()}@example.com`;
+          result = await supabase.auth.signInWithPassword({
+            email: fallbackEmail,
+            password: authPassword,
+          });
+          signInError = result.error;
+        }
       }
 
       if (signInError) {
@@ -81,31 +95,26 @@ const Login = () => {
           setError(
             isMentor
               ? 'Invalid email or password. Verify your mentor credentials.'
-              : `Invalid USN or password. Use your USN as the default password.`
+              : `Invalid USN or password. Your default password is your USN in uppercase (e.g. 4SH24CS001). Contact your mentor if you cannot log in.`
           );
         } else {
           setError(signInError.message);
         }
       } else {
-        // We no longer call navigate('/') here manually.
-        // Instead, we wait for AuthContext to update the userProfile.
-        // The Navigate component at line 47 will handle the redirect once profile is ready.
+        // Sign in successful — AuthContext will load profile and Navigate will redirect
         console.log('[Login] Sign in successful, waiting for profile...');
       }
     } catch (err) {
       setError(err.message || 'An unexpected error occurred during login.');
     } finally {
-      // Only stop loading if we don't have a session at all
-      // If we have a session, we wait for the profileError useEffect to stop submitting
-      // or for the Navigate component to unmount us.
-      if (!session && !signInError) {
-        // If no session and no error, something is weird, but stop spinning
+      if (signInError) {
         setSubmitting(false);
-      } else if (signInError) {
+      } else if (!session) {
         setSubmitting(false);
       }
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#0B0B11] relative overflow-hidden flex flex-col items-center justify-center p-6">

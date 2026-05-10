@@ -186,12 +186,15 @@ DECLARE
     new_user_id UUID;
     user_email TEXT;
 BEGIN
-    user_email := NEW.usn || '@forge.local';
+    -- Use lowercase USN + @forge.local so email validation doesn't interfere
+    user_email := LOWER(NEW.usn) || '@forge.local';
 
     -- Check if auth user already exists
     SELECT id INTO new_user_id FROM auth.users WHERE email = user_email;
 
     IF new_user_id IS NULL THEN
+        new_user_id := gen_random_uuid();
+
         INSERT INTO auth.users (
             instance_id, id, aud, role, email, encrypted_password,
             email_confirmed_at, recovery_sent_at, last_sign_in_at,
@@ -201,16 +204,25 @@ BEGIN
         )
         VALUES (
             '00000000-0000-0000-0000-000000000000',
-            gen_random_uuid(),
+            new_user_id,
             'authenticated', 'authenticated',
             user_email,
-            crypt(NEW.usn, gen_salt('bf')),
+            -- Default password is USN in UPPERCASE (e.g. 4SH24CS001)
+            crypt(UPPER(NEW.usn), gen_salt('bf')),
             NOW(), NULL, NULL,
             '{"provider":"email","providers":["email"]}', '{}',
             NOW(), NOW(),
             '', '', '', ''
-        )
-        RETURNING id INTO new_user_id;
+        );
+
+        -- CRITICAL: Insert into auth.identities (required for login in newer Supabase versions)
+        INSERT INTO auth.identities (
+            id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+        ) VALUES (
+            gen_random_uuid(), new_user_id,
+            format('{"sub":"%s","email":"%s"}', new_user_id::text, user_email)::jsonb,
+            'email', new_user_id::text, NOW(), NOW(), NOW()
+        );
     END IF;
 
     -- Upsert public.users profile

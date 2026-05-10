@@ -1,6 +1,8 @@
 -- ==========================================
 -- FINAL DATABASE REPAIR & SEED SCRIPT
--- ForgeTrack System Recovery (v2)
+-- ForgeTrack System Recovery (v3)
+-- Repairs mentor account + creates auth for all students in DB
+-- Students are imported via BulkAttendance, NOT hardcoded here.
 -- ==========================================
 
 
@@ -26,21 +28,26 @@ BEGIN
     VALUES (mentor_id, 'nischaybk@theboringpeople.in', 'mentor', 'Nischay Mentor')
     ON CONFLICT (id) DO UPDATE SET role = 'mentor', display_name = 'Nischay Mentor';
 
-    -- STUDENT REPAIR & SEED ATTENDANCE
+    -- STUDENT REPAIR: Create/sync auth accounts for all students currently in DB
+    -- (Students are imported via BulkAttendance CSV upload — not seeded here)
     FOR s IN SELECT id, name, usn FROM public.students LOOP
-        -- Auth account
-        SELECT id INTO auth_uid FROM auth.users WHERE email = LOWER(s.usn || '@example.com');
+        -- Auth account uses @forge.local (matches the on_student_created trigger)
+        SELECT id INTO auth_uid FROM auth.users WHERE email = LOWER(s.usn || '@forge.local');
         IF auth_uid IS NULL THEN
             auth_uid := gen_random_uuid();
             INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
-            VALUES (auth_uid, LOWER(s.usn || '@example.com'), crypt(s.usn, gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
+            VALUES (auth_uid, LOWER(s.usn || '@forge.local'), crypt(UPPER(s.usn), gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
+
+            -- Ensure auth.identities record exists for login to work
+            INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+            VALUES (gen_random_uuid(), auth_uid, format('{"sub":"%s","email":"%s"}', auth_uid::text, LOWER(s.usn || '@forge.local'))::jsonb, 'email', auth_uid::text, NOW(), NOW(), NOW())
+            ON CONFLICT DO NOTHING;
         END IF;
 
         -- Public profile
         INSERT INTO public.users (id, email, role, student_id, display_name)
-        VALUES (auth_uid, LOWER(s.usn || '@example.com'), 'student', s.id, s.name)
+        VALUES (auth_uid, LOWER(s.usn || '@forge.local'), 'student', s.id, s.name)
         ON CONFLICT (id) DO UPDATE SET student_id = EXCLUDED.student_id, role = 'student', display_name = EXCLUDED.display_name;
-
 
     END LOOP;
 END $$;
