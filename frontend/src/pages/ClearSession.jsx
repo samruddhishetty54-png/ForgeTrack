@@ -10,7 +10,7 @@ const ClearSession = () => {
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith('sb-')) localStorage.removeItem(k);
       });
-      window.location.replace('/login');
+      window.location.replace('/');
     }
     clear();
   }, []);
