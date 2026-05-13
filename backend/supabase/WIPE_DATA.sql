@@ -18,4 +18,4 @@ DELETE FROM public.students;
 DELETE FROM auth.users WHERE email LIKE '%@example.com' OR email LIKE '%@forge.local';
 
 -- 3. The Mentor account will remain intact because we didn't wipe public.users
--- Your mentor account (nischaybk@theboringpeople.in) is safe.
+-- Your mentor account (nischay@theboringpeople.in) is safe.

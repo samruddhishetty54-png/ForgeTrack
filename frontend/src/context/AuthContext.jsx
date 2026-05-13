@@ -111,14 +111,30 @@ export const AuthProvider = ({ children }) => {
     if (isSigningOut.current) return;
     isSigningOut.current = true;
     setLoading(true);
+    
     try {
+      console.log('[AuthContext] Signing out...');
+      // Clear Supabase session
       await supabase.auth.signOut();
+      
+      // Clear local state immediately for responsive UI
       setUserProfile(null);
       setSession(null);
+      setProfileError(null);
+      
+      // Clear any leftover storage keys just in case
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-')) localStorage.removeItem(key);
+      });
+
+      console.log('[AuthContext] Sign out complete, redirecting...');
+    } catch (err) {
+      console.error('[AuthContext] Sign out error:', err);
     } finally {
-      isSigningOut.current = false;
-      setLoading(false);
-      window.location.href = '/login';
+      // Use replace to avoid adding to history and to force a clean reload
+      // We DON'T set loading(false) here because we want the app to stay in 
+      // a loading state until the new page (/login) takes over.
+      window.location.replace('/login');
     }
   };
 

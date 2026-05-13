@@ -6,7 +6,7 @@ import { Loader2, AlertTriangle, Fingerprint, Mail, ShieldCheck, Database } from
 
 const Login = () => {
   const [isMentor, setIsMentor] = useState(false);
-  const [identifier, setIdentifier] = useState('');
+  const [identifier, setIdentifier] = useState(isMentor ? 'nischay@theboringpeople.in' : '');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -167,7 +167,7 @@ const Login = () => {
                   ? 'bg-white text-void shadow-[0_10px_20px_rgba(0,0,0,0.2)]'
                   : 'text-fg-tertiary hover:text-fg-secondary'
               }`}
-              onClick={() => { setIsMentor(true); setIdentifier(''); setError(null); }}
+              onClick={() => { setIsMentor(true); setIdentifier('nischay@theboringpeople.in'); setError(null); }}
             >
               <Mail className={`w-4 h-4 ${isMentor ? 'text-void' : 'text-fg-tertiary'}`} />
               Mentor
@@ -196,7 +196,7 @@ const Login = () => {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full bg-void/50 border border-white/5 rounded-2xl h-14 pl-14 pr-6 text-fg-primary placeholder:text-fg-tertiary focus:outline-none focus:border-accent-glow/50 transition-all font-medium"
-                  placeholder={isMentor ? 'mentor@theforge.com' : '4SH24CS001'}
+                  placeholder={isMentor ? 'nischay@theboringpeople.in' : '4SH24CS001'}
                 />
               </div>
             </div>

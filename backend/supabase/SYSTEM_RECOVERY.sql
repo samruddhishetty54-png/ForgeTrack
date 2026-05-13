@@ -15,18 +15,18 @@ DECLARE
     mentor_id UUID;
 BEGIN
     -- MENTOR REPAIR
-    SELECT id INTO mentor_id FROM auth.users WHERE email = 'nischaybk@theboringpeople.in';
+    SELECT id INTO mentor_id FROM auth.users WHERE email = 'nischay@theboringpeople.in';
     IF mentor_id IS NULL THEN
         mentor_id := gen_random_uuid();
         INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, aud, role, instance_id)
-        VALUES (mentor_id, 'nischaybk@theboringpeople.in', crypt('password123', gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
+        VALUES (mentor_id, 'nischay@theboringpeople.in', crypt('password123', gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
     ELSE
         -- Force reset password so you can definitely log in
         UPDATE auth.users SET encrypted_password = crypt('password123', gen_salt('bf')) WHERE id = mentor_id;
     END IF;
     INSERT INTO public.users (id, email, role, display_name)
-    VALUES (mentor_id, 'nischaybk@theboringpeople.in', 'mentor', 'Nischay Mentor')
-    ON CONFLICT (id) DO UPDATE SET role = 'mentor', display_name = 'Nischay Mentor';
+    VALUES (mentor_id, 'nischay@theboringpeople.in', 'mentor', 'Nischay')
+    ON CONFLICT (id) DO UPDATE SET role = 'mentor', display_name = 'Nischay';
 
     -- STUDENT REPAIR: Create/sync auth accounts for all students currently in DB
     -- (Students are imported via BulkAttendance CSV upload — not seeded here)
